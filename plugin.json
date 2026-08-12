@@ -1,20 +1,60 @@
 {
-  "Id": "{{.Id}}",
-  "TriggerKeywords": [
-    "{{.TriggerKeyword}}"
-  ],
-  "Name": "{{.Name}}",
-  "Description": "{{.Description}}",
-  "Author": "{{.Author}}",
-  "Version": "0.0.6",
-  "MinWoxVersion": "2.0.0",
-  "Runtime": "nodejs",
-  "Website": "{{.Website}}",
+  "Id": "4a7d6f0b-78ba-4e47-9da9-01af0a45bad3",
+  "TriggerKeywords": ["qrcode"],
+  "Name": "QRCode",
+  "Description": "快速生成二维码：输入文本或链接，实时预览，一键复制或保存为图片",
+  "Author": "Flartiny",
+  "Version": "1.0.0",
+  "MinWoxVersion": "2.0.4",
+  "Runtime": "NODEJS",
+  "Website": "https://github.com/Flartiny/Wox.Plugin.QRCode",
   "Entry": "index.js",
   "Icon": "relative:images/app.svg",
-  "SupportedOS": [
-    "windows",
-    "linux",
-    "darwin"
+  "SupportedOS": ["windows", "linux", "darwin"],
+  "Features": [{ "Name": "querySelection" }],
+  "SettingDefinitions": [
+    {
+      "Type": "select",
+      "Value": {
+        "Key": "size",
+        "Label": "二维码尺寸",
+        "DefaultValue": "512",
+        "Tooltip": "生成二维码图片的边长（像素），预览与复制均使用该尺寸",
+        "Options": [
+          { "Label": "256 (小)", "Value": "256" },
+          { "Label": "512 (中)", "Value": "512" },
+          { "Label": "1024 (大)", "Value": "1024" }
+        ]
+      },
+      "IsPlatformSpecific": false
+    },
+    {
+      "Type": "select",
+      "Value": {
+        "Key": "errorCorrectionLevel",
+        "Label": "容错等级",
+        "DefaultValue": "M",
+        "Tooltip": "容错等级越高，二维码越耐污损、可识别性越强，但图案更复杂",
+        "Options": [
+          { "Label": "L (低 7%)", "Value": "L" },
+          { "Label": "M (中 15%)", "Value": "M" },
+          { "Label": "Q (较高 25%)", "Value": "Q" },
+          { "Label": "H (最高 30%)", "Value": "H" }
+        ]
+      },
+      "IsPlatformSpecific": false
+    },
+    {
+      "Type": "textbox",
+      "Value": {
+        "Key": "downloadDirectory",
+        "Label": "保存目录",
+        "DefaultValue": "",
+        "Tooltip": "执行「保存到目录」时二维码图片的存放位置；留空则保存到系统下载目录",
+        "MaxLines": 1,
+        "Validators": []
+      },
+      "IsPlatformSpecific": true
+    }
   ]
 }

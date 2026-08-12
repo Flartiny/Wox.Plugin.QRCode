@@ -1,11 +1,45 @@
-> For developer
+# QRCode
 
-    Please run `make init` to initialize the project.
+在 Wox 中快速生成二维码：输入文本或链接，实时预览二维码图案，一键复制到剪贴板或保存为 PNG 图片。
 
-# {{.Name}}
+## 安装
 
-# Install
-
+```sh
+wpm install QRCode
 ```
-wpm install {{.Name}}
+
+## 用法
+
+- 输入 `qrcode <内容>` 生成二维码，例如 `qrcode https://example.com`
+- 选中任意文本后按热键调起 Wox，也可直接为该文本生成二维码（需在 Wox 设置中启用「选中文本查询」）
+
+结果操作：
+
+| 按键     | 操作                    |
+| -------- | ----------------------- |
+| `Enter`  | 复制二维码图片到剪贴板  |
+| `Ctrl+S` | 保存二维码为 PNG 到目录 |
+| `Ctrl+C` | 复制二维码内容文本      |
+
+## 设置
+
+| 设置项     | 说明                                                     |
+| ---------- | -------------------------------------------------------- |
+| 二维码尺寸 | 生成图片的边长（像素），可选 256 / 512 / 1024            |
+| 容错等级   | L(7%) / M(15%) / Q(25%) / H(30%)，越高越耐污损           |
+| 保存目录   | 执行「保存为 PNG」时的存放位置，留空则保存到系统下载目录 |
+
+## 开发
+
+```bash
+make install   # 安装依赖
+make build     # 构建
+make test      # 运行测试
+make package   # 打包为 wox.plugin.QRCode.wox
 ```
+
+## 技术说明
+
+- 使用 [qrcode](https://www.npmjs.com/package/qrcode) 纯 JS 生成 PNG，无系统依赖
+- 生成结果缓存在插件目录 `.cache` 下，相同内容复用同一文件，最多保留 30 个
+- 预览面板直接展示二维码图片，尺寸与容错等级可通过设置调整
