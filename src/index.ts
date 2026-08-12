@@ -7,7 +7,7 @@ let api: PublicAPI
 
 const ICON: WoxImage = {
   ImageType: "relative",
-  ImageData: "images/app.svg"
+  ImageData: "images/app.png"
 }
 
 // 预览面板宽度比例：给二维码图片留出更多空间

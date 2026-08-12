@@ -41,5 +41,5 @@ make package   # 打包为 wox.plugin.QRCode.wox
 ## 技术说明
 
 - 使用 [qrcode](https://www.npmjs.com/package/qrcode) 纯 JS 生成 PNG，无系统依赖
-- 生成结果缓存在插件目录 `.cache` 下，相同内容复用同一文件，最多保留 30 个
+- 生成结果缓存在 Wox 数据目录（`%APPDATA%\Wox\Data\qrcode-cache`）下，相同内容复用同一文件，最多保留 30 个
 - 预览面板直接展示二维码图片，尺寸与容错等级可通过设置调整

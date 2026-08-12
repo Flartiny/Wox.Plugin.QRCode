@@ -9,7 +9,7 @@
   "Runtime": "NODEJS",
   "Website": "https://github.com/Flartiny/Wox.Plugin.QRCode",
   "Entry": "index.js",
-  "Icon": "relative:images/app.svg",
+  "Icon": "relative:images/app.png",
   "SupportedOS": ["windows", "linux", "darwin"],
   "Features": [{ "Name": "querySelection" }],
   "SettingDefinitions": [
