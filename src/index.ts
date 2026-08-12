@@ -1,10 +1,9 @@
 import * as fs from "fs"
 import * as path from "path"
 import { Context, Plugin, PluginInitParams, PublicAPI, Query, QueryResponse, Result, WoxImage } from "@wox-launcher/wox-plugin"
-import { buildSaveFilePath, cleanupCache, ErrorCorrectionLevel, parseErrorCorrectionLevel, parseSize, resolveDownloadDirectory, writeQrcodePngFile } from "./qrcode"
+import { buildSaveFilePath, cleanupCache, ErrorCorrectionLevel, getQrcodeCacheDir, parseErrorCorrectionLevel, parseSize, resolveDownloadDirectory, writeQrcodePngFile } from "./qrcode"
 
 let api: PublicAPI
-let pluginDirectory = ""
 
 const ICON: WoxImage = {
   ImageType: "relative",
@@ -19,7 +18,6 @@ const MAX_CACHE_FILES = 30
 export const plugin: Plugin = {
   init: async (ctx: Context, initParams: PluginInitParams) => {
     api = initParams.API
-    pluginDirectory = initParams.PluginDirectory
     await api.Log(ctx, "Info", "QRCode plugin initialized")
   },
 
@@ -32,12 +30,13 @@ export const plugin: Plugin = {
 
     try {
       const options = await loadOptions(ctx)
-      const cacheDir = path.join(pluginDirectory, ".cache")
+      // 缓存写入 Wox 数据目录，避免开发模式下触发 dist 监视导致的插件自动重载
+      const cacheDir = getQrcodeCacheDir()
       cleanupCache(cacheDir, MAX_CACHE_FILES)
 
       const imagePath = await writeQrcodePngFile(cacheDir, text, options)
       return {
-        Results: [await buildQrcodeResult(ctx, text, imagePath, options)],
+        Results: [await buildQrcodeResult(text, imagePath, options)],
         Layout: { ResultPreviewWidthRatio: PREVIEW_WIDTH_RATIO }
       }
     } catch (error) {
@@ -79,7 +78,7 @@ async function loadOptions(ctx: Context): Promise<{ width: number; errorCorrecti
   }
 }
 
-async function buildQrcodeResult(ctx: Context, text: string, imagePath: string, options: { width: number; errorCorrectionLevel: ErrorCorrectionLevel }): Promise<Result> {
+async function buildQrcodeResult(text: string, imagePath: string, options: { width: number; errorCorrectionLevel: ErrorCorrectionLevel }): Promise<Result> {
   const levelLabel: Record<ErrorCorrectionLevel, string> = { L: "L", M: "M", Q: "Q", H: "H" }
   const image: WoxImage = { ImageType: "absolute", ImageData: imagePath }
 
@@ -92,7 +91,8 @@ async function buildQrcodeResult(ctx: Context, text: string, imagePath: string, 
     Tails: [{ Type: "text", Text: "PNG" }],
     Preview: {
       PreviewType: "image",
-      PreviewData: imagePath,
+      // image 预览的 PreviewData 必须带类型前缀（如 absolute:），纯路径会被解析成错误的 ImageType
+      PreviewData: `absolute:${imagePath}`,
       PreviewTags: [
         { Label: `${options.width}×${options.width}`, Tooltip: "图片尺寸" },
         { Label: `${text.length} chars`, Tooltip: "内容长度" },

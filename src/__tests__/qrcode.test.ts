@@ -1,7 +1,7 @@
 import * as fs from "fs"
 import * as os from "os"
 import * as path from "path"
-import { buildSaveFilePath, cleanupCache, generateQrcodePng, hashText, parseErrorCorrectionLevel, parseSize, resolveDownloadDirectory, writeQrcodePngFile } from "../qrcode"
+import { buildSaveFilePath, cleanupCache, generateQrcodePng, getQrcodeCacheDir, hashText, parseErrorCorrectionLevel, parseSize, resolveDownloadDirectory, writeQrcodePngFile } from "../qrcode"
 
 describe("parseSize", () => {
   test("解析合法尺寸", () => {
@@ -46,6 +46,17 @@ describe("hashText", () => {
 
   test("摘要长度为 16 且为十六进制", () => {
     expect(hashText("https://example.com")).toMatch(/^[0-9a-f]{16}$/)
+  })
+})
+
+describe("getQrcodeCacheDir", () => {
+  test("缓存目录独立于插件目录且包含专属子目录名", () => {
+    const dir = getQrcodeCacheDir()
+    expect(dir).toContain("qrcode-cache")
+    // Windows 下应位于 APPDATA\Wox\Data 下
+    if (process.platform === "win32" && process.env.APPDATA) {
+      expect(dir.startsWith(path.join(process.env.APPDATA, "Wox"))).toBe(true)
+    }
   })
 })
 

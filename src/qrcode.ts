@@ -10,6 +10,24 @@ export interface QrcodeOptions {
   errorCorrectionLevel: ErrorCorrectionLevel
 }
 
+// Wox 数据目录：与插件目录隔离
+// 开发模式下 Wox 从插件 dist 目录加载并监视文件变化，写入插件目录会触发自动重载，
+// 因此缓存必须放到独立位置。
+export function getWoxDataDir(): string {
+  const appData = process.env.APPDATA
+  if (process.platform === "win32" && appData) {
+    return path.join(appData, "Wox", "Data")
+  }
+
+  const home = process.env.HOME || process.env.USERPROFILE || "~"
+  return path.join(home, ".wox", "data")
+}
+
+// 二维码缓存目录：Wox 数据目录下的独立子目录
+export function getQrcodeCacheDir(): string {
+  return path.join(getWoxDataDir(), "qrcode-cache")
+}
+
 const DEFAULT_WIDTH = 512
 const MAX_WIDTH = 4096
 const MIN_WIDTH = 64
