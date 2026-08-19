@@ -1,7 +1,23 @@
-import * as fs from "fs"
-import * as os from "os"
-import * as path from "path"
-import { buildSaveFilePath, cleanupCache, generateQrcodePng, getQrcodeCacheDir, hashText, parseErrorCorrectionLevel, parseSize, resolveDownloadDirectory, writeQrcodePngFile } from "../qrcode"
+import * as fs from "node:fs"
+import * as os from "node:os"
+import * as path from "node:path"
+import {
+  appendHistory,
+  buildSaveFilePath,
+  cleanupCache,
+  clearHistory,
+  formatHistoryTime,
+  generateQrcodePng,
+  getQrcodeCacheDir,
+  hashText,
+  loadHistory,
+  parseErrorCorrectionLevel,
+  parseHistoryLimit,
+  parseSize,
+  removeHistory,
+  resolveDownloadDirectory,
+  writeQrcodePngFile
+} from "../qrcode"
 
 describe("parseSize", () => {
   test("解析合法尺寸", () => {
@@ -122,6 +138,93 @@ describe("cleanupCache", () => {
       .filter(name => name.endsWith(".png"))
       .filter(name => !name.endsWith(".tmp"))
     expect(remaining.length).toBe(3)
+  })
+})
+
+describe("parseHistoryLimit", () => {
+  test("解析合法条数", () => {
+    expect(parseHistoryLimit("80")).toBe(80)
+    expect(parseHistoryLimit("200")).toBe(200)
+  })
+
+  test("非法输入回退默认 50", () => {
+    expect(parseHistoryLimit(undefined)).toBe(50)
+    expect(parseHistoryLimit("")).toBe(50)
+    expect(parseHistoryLimit("abc")).toBe(50)
+  })
+
+  test("过小或过大条数被截断", () => {
+    expect(parseHistoryLimit("5")).toBe(50)
+    expect(parseHistoryLimit("9999")).toBe(200)
+  })
+})
+
+describe("history 读写", () => {
+  const historyFile = path.join(os.tmpdir(), `wox-qrcode-history-${Date.now()}.json`)
+
+  afterAll(() => {
+    fs.rmSync(historyFile, { force: true })
+  })
+
+  test("无文件时返回空数组", () => {
+    expect(loadHistory(historyFile)).toEqual([])
+  })
+
+  test("追加记录：相同内容去重并提前，按最近使用排序", () => {
+    appendHistory("first", new Date("2025-01-02T10:00:00"), 50, historyFile)
+    appendHistory("second", new Date("2025-01-02T10:01:00"), 50, historyFile)
+    appendHistory("first", new Date("2025-01-02T10:02:00"), 50, historyFile)
+
+    const entries = loadHistory(historyFile)
+    expect(entries.map(entry => entry.text)).toEqual(["first", "second"])
+    expect(entries[0].createdAt).toBe(new Date("2025-01-02T10:02:00").getTime())
+  })
+
+  test("超过上限时淘汰最旧记录", () => {
+    const limit = 3
+    for (let index = 0; index < 5; index += 1) {
+      appendHistory(`item-${index}`, new Date(2025, 0, 1, 0, index), limit, historyFile)
+    }
+
+    const entries = loadHistory(historyFile)
+    expect(entries.length).toBe(3)
+    expect(entries.map(entry => entry.text)).toEqual(["item-4", "item-3", "item-2"])
+  })
+
+  test("损坏的文件返回空数组", () => {
+    fs.writeFileSync(historyFile, "{not json")
+    expect(loadHistory(historyFile)).toEqual([])
+  })
+
+  test("removeHistory 仅删除指定记录", () => {
+    fs.rmSync(historyFile, { force: true })
+    appendHistory("a", new Date(2025, 0, 1), 50, historyFile)
+    appendHistory("b", new Date(2025, 0, 2), 50, historyFile)
+
+    removeHistory("a", historyFile)
+    expect(loadHistory(historyFile).map(entry => entry.text)).toEqual(["b"])
+  })
+
+  test("clearHistory 清空全部记录", () => {
+    appendHistory("a", new Date(2025, 0, 1), 50, historyFile)
+    clearHistory(historyFile)
+    expect(loadHistory(historyFile)).toEqual([])
+  })
+})
+
+describe("formatHistoryTime", () => {
+  const now = new Date(2025, 0, 2, 15, 30)
+
+  test("今天显示时:分", () => {
+    expect(formatHistoryTime(new Date(2025, 0, 2, 9, 5).getTime(), now)).toBe("今天 09:05")
+  })
+
+  test("昨天显示「昨天」", () => {
+    expect(formatHistoryTime(new Date(2025, 0, 1, 23, 59).getTime(), now)).toBe("昨天 23:59")
+  })
+
+  test("更早显示完整日期", () => {
+    expect(formatHistoryTime(new Date(2024, 11, 31, 8, 0).getTime(), now)).toBe("2024-12-31 08:00")
   })
 })
 

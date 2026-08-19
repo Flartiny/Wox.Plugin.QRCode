@@ -1,8 +1,8 @@
 {
   "Id": "4a7d6f0b-78ba-4e47-9da9-01af0a45bad3",
-  "TriggerKeywords": ["qrcode"],
+  "TriggerKeywords": ["qrcode", "qrlist"],
   "Name": "QRCode",
-  "Description": "快速生成二维码：输入文本或链接，实时预览，一键复制或保存为图片",
+  "Description": "快速生成二维码（输入文本或链接实时预览、一键复制或保存），qrlist 查看历史生成记录",
   "Author": "Flartiny",
   "Version": "1.0.0",
   "MinWoxVersion": "2.0.4",
@@ -40,6 +40,26 @@
           { "Label": "M (中 15%)", "Value": "M" },
           { "Label": "Q (较高 25%)", "Value": "Q" },
           { "Label": "H (最高 30%)", "Value": "H" }
+        ]
+      },
+      "IsPlatformSpecific": false
+    },
+    {
+      "Type": "textbox",
+      "Value": {
+        "Key": "historyLimit",
+        "Label": "历史记录条数",
+        "DefaultValue": "50",
+        "Tooltip": "qrlist 历史记录最多保留的条数，范围 10-200，默认 50",
+        "MaxLines": 1,
+        "Validators": [
+          {
+            "Type": "is_number",
+            "Value": {
+              "IsInteger": true,
+              "IsFloat": false
+            }
+          }
         ]
       },
       "IsPlatformSpecific": false
