@@ -4,9 +4,17 @@
 
 ## 安装
 
+### 从 Wox Store 安装
+
+当插件条目已合并到 Wox Store 后，执行：
+
 ```sh
 wpm install QRCode
 ```
+
+### 从 GitHub Release 安装
+
+在 [Releases](https://github.com/Flartiny/Wox.Plugin.QRCode/releases) 下载 `wox.plugin.QRCode.wox`，然后在 Wox 的插件管理器中选择本地安装。
 
 ## 用法
 
@@ -48,7 +56,7 @@ wpm install QRCode
 make install   # 安装依赖
 make build     # 构建
 make test      # 运行测试
-make package   # 打包为 wox.plugin.QRCode.wox
+make package   # 打包为 wox.plugin.QRCode.wox（用于 GitHub Release）
 ```
 
 ## 技术说明
@@ -56,3 +64,7 @@ make package   # 打包为 wox.plugin.QRCode.wox
 - 使用 [qrcode](https://www.npmjs.com/package/qrcode) 纯 JS 生成 PNG，无系统依赖
 - 生成结果缓存在 Wox 数据目录（`%APPDATA%\Wox\Data\qrcode-cache`）下，相同内容复用同一文件，最多保留 30 个；历史图片缺失时会按需重新生成
 - 历史记录独立存储在 `%APPDATA%\Wox\Data\qrcode-history.json`（缓存文件名是内容哈希，无法还原文本），以最近使用排序、相同内容去重，条数可在设置中调整
+
+## 许可证
+
+[MIT License](LICENSE)

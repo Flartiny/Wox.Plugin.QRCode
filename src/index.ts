@@ -57,16 +57,9 @@ async function handleQrcode(ctx: Context, query: Query): Promise<QueryResponse> 
   }
 
   try {
-    const [options, historyLimitValue] = await Promise.all([loadOptions(ctx), api.GetSetting(ctx, "historyLimit")])
-    // 缓存写入 Wox 数据目录，避免开发模式下触发 dist 监视导致的插件自动重载
-    const cacheDir = getQrcodeCacheDir()
-    cleanupCache(cacheDir, MAX_CACHE_FILES)
-
-    const imagePath = await writeQrcodePngFile(cacheDir, text, options)
-    // 记录历史：相同内容去重并提前，超过上限时淘汰最旧
-    appendHistory(text, new Date(), parseHistoryLimit(historyLimitValue))
+    // 查询会随每次按键触发；此阶段只展示待执行项，不生成图片或写入历史。
     return {
-      Results: [await buildQrcodeResult(text, imagePath, options)],
+      Results: [await buildQrcodeResult(text)],
       Layout: { ResultPreviewWidthRatio: PREVIEW_WIDTH_RATIO }
     }
   } catch (error) {
@@ -134,7 +127,7 @@ async function buildHistoryResult(entry: HistoryEntry): Promise<Result> {
           PreviewData: entry.text,
           PreviewProperties: {}
         },
-    Actions: [buildCopyImageAction(entry.text), buildSaveAsPngAction(entry.text, "qrlist "), buildCopyTextAction(entry.text), buildRemoveHistoryAction(entry.text)]
+    Actions: [buildCopyImageAction(entry.text), buildSaveAsPngAction(entry.text), buildCopyTextAction(entry.text), buildRemoveHistoryAction(entry.text)]
   }
 }
 
@@ -144,12 +137,12 @@ function buildHelpResult(): Result {
   return {
     Id: "qrcode-help",
     Title: "二维码生成器",
-    SubTitle: "输入内容生成二维码：qrcode 文本或链接，回车复制图片；输入 qrlist 查看历史",
+    SubTitle: "确认内容后回车生成二维码；Ctrl+S 保存 PNG，Ctrl+C 复制图片；输入 qrlist 查看历史",
     Icon: ICON,
     Preview: {
       PreviewType: "text",
       PreviewData:
-        "用法：\n  输入 qrcode <内容> 生成二维码\n  输入 qrlist [关键词] 查看历史生成记录\n\n操作（生成结果）：\n  回车       复制二维码图片到剪贴板\n  Ctrl+S     保存为 PNG 到目录\n  Ctrl+C     复制二维码内容文本\n\n操作（历史列表）：\n  回车       复制二维码图片到剪贴板\n  Ctrl+S     保存为 PNG 到目录\n  Ctrl+C     复制二维码内容文本\n  Ctrl+D     从历史中删除该条记录\n\n设置：\n  尺寸、容错等级、保存目录、历史条数可在插件设置中调整",
+        "用法：\n  输入 qrcode <内容>，确认内容后回车生成二维码\n  输入 qrlist [关键词] 查看历史生成记录\n\n操作（生成结果）：\n  回车       生成二维码（不操作剪贴板）\n  Ctrl+S     保存为 PNG 到目录\n  Ctrl+C     复制二维码图片到剪贴板\n\n操作（历史列表）：\n  回车       复制二维码图片到剪贴板\n  Ctrl+S     保存为 PNG 到目录\n  Ctrl+C     复制二维码内容文本\n  Ctrl+D     从历史中删除该条记录\n\n设置：\n  尺寸、容错等级、保存目录、历史条数可在插件设置中调整",
       PreviewProperties: {}
     }
   }
@@ -186,43 +179,58 @@ function buildClearHistoryResult(): Result {
   }
 }
 
-async function buildQrcodeResult(text: string, imagePath: string, options: { width: number; errorCorrectionLevel: ErrorCorrectionLevel }): Promise<Result> {
-  const levelLabel: Record<ErrorCorrectionLevel, string> = { L: "L", M: "M", Q: "Q", H: "H" }
-  const image: WoxImage = { ImageType: "absolute", ImageData: imagePath }
-
+async function buildQrcodeResult(text: string): Promise<Result> {
   return {
-    Id: `qrcode-${path.basename(imagePath)}`,
-    Title: `二维码: ${truncateText(text, MAX_TITLE_LENGTH)}`,
-    SubTitle: `${text.length} 字符 · ${options.width}px · 容错 ${levelLabel[options.errorCorrectionLevel]} · 回车复制图片`,
-    Icon: image,
+    Id: `qrcode-${hashText(text)}`,
+    Title: `生成二维码: ${truncateText(text, MAX_TITLE_LENGTH)}`,
+    SubTitle: `${text.length} 字符 · 回车生成 · Ctrl+S 保存 PNG · Ctrl+C 复制图片`,
+    Icon: ICON,
     Score: 100,
-    Tails: [{ Type: "text", Text: "PNG" }],
-    Preview: {
-      PreviewType: "image",
-      // image 预览的 PreviewData 必须带类型前缀（如 absolute:），纯路径会被解析成错误的 ImageType
-      PreviewData: `absolute:${imagePath}`,
-      PreviewTags: [
-        { Label: `${options.width}×${options.width}`, Tooltip: "图片尺寸" },
-        { Label: `${text.length} chars`, Tooltip: "内容长度" },
-        { Label: `EC ${levelLabel[options.errorCorrectionLevel]}`, Tooltip: "容错等级" }
-      ],
-      PreviewProperties: {}
-    },
-    Actions: [buildCopyImageAction(text), buildSaveAsPngAction(text, "qrcode "), buildCopyTextAction(text)]
+    Tails: [{ Type: "text", Text: "待生成" }],
+    Preview: { PreviewType: "text", PreviewData: text, PreviewProperties: {} },
+    Actions: [buildGenerateAction(text), buildSaveAsPngAction(text, true), buildCopyImageAction(text, true, "Ctrl+C")]
   }
 }
 
 // ============ 公共操作 ============
 
-// 复制二维码图片：缓存缺失时按需重新生成，保证任何历史条目都可复制
-function buildCopyImageAction(text: string): ResultAction {
+// 回车只生成二维码并更新预览，不操作剪贴板
+function buildGenerateAction(text: string): ResultAction {
   return {
-    Name: "复制二维码图片",
+    Name: "生成二维码",
     IsDefault: true,
     Hotkey: "Enter",
+    PreventHideAfterAction: true,
+    Action: async (actionCtx: Context, actionContext) => {
+      const options = await loadOptions(actionCtx)
+      const imagePath = await writeQrcodePngFile(getQrcodeCacheDir(), text, options)
+      await recordGeneratedText(actionCtx, text)
+      const image: WoxImage = { ImageType: "absolute", ImageData: imagePath }
+      await api.UpdateResult(actionCtx, {
+        Id: actionContext.ResultId,
+        Title: `二维码: ${truncateText(text, MAX_TITLE_LENGTH)}`,
+        SubTitle: `${text.length} 字符 · ${options.width}px · 已生成`,
+        Icon: image,
+        Tails: [{ Type: "text", Text: "PNG" }],
+        Preview: { PreviewType: "image", PreviewData: `absolute:${imagePath}`, PreviewProperties: {} }
+      })
+    }
+  }
+}
+
+// 复制二维码图片：缓存缺失时按需重新生成，保证任何历史条目都可复制
+function buildCopyImageAction(text: string, recordHistory = false, hotkey = "Enter"): ResultAction {
+  return {
+    Name: "复制二维码图片",
+    IsDefault: hotkey === "Enter",
+    Hotkey: hotkey,
+    PreventHideAfterAction: true,
     Action: async (actionCtx: Context) => {
       const options = await loadOptions(actionCtx)
       const imagePath = await writeQrcodePngFile(getQrcodeCacheDir(), text, options)
+      if (recordHistory) {
+        await recordGeneratedText(actionCtx, text)
+      }
       const image: WoxImage = { ImageType: "absolute", ImageData: imagePath }
       await api.Copy(actionCtx, { type: "image", text: "", woxImage: image })
       await api.Notify(actionCtx, "二维码图片已复制到剪贴板")
@@ -230,28 +238,38 @@ function buildCopyImageAction(text: string): ResultAction {
   }
 }
 
-// 保存为 PNG：保存后把搜索框重置到所属命令，方便连续操作
-function buildSaveAsPngAction(text: string, nextQuery: string): ResultAction {
+// 保存为 PNG；执行后保持 Wox 窗口和当前结果可见
+function buildSaveAsPngAction(text: string, recordHistory = false): ResultAction {
   return {
     Name: "保存为 PNG",
     Hotkey: "Ctrl+S",
+    PreventHideAfterAction: true,
     Action: async (actionCtx: Context) => {
       const directory = resolveDownloadDirectory(await api.GetSetting(actionCtx, "downloadDirectory"))
       fs.mkdirSync(directory, { recursive: true })
       const savePath = buildSaveFilePath(directory, new Date())
       const options = await loadOptions(actionCtx)
       const imagePath = await writeQrcodePngFile(getQrcodeCacheDir(), text, options)
+      if (recordHistory) {
+        await recordGeneratedText(actionCtx, text)
+      }
       fs.copyFileSync(imagePath, savePath)
       await api.Notify(actionCtx, `已保存: ${savePath}`)
-      await api.ChangeQuery(actionCtx, { QueryType: "input", QueryText: nextQuery })
     }
   }
+}
+
+async function recordGeneratedText(ctx: Context, text: string): Promise<void> {
+  const historyLimit = await api.GetSetting(ctx, "historyLimit")
+  appendHistory(text, new Date(), parseHistoryLimit(historyLimit))
+  cleanupCache(getQrcodeCacheDir(), MAX_CACHE_FILES)
 }
 
 function buildCopyTextAction(text: string): ResultAction {
   return {
     Name: "复制内容文本",
     Hotkey: "Ctrl+C",
+    PreventHideAfterAction: true,
     Action: async (actionCtx: Context) => {
       await api.Copy(actionCtx, { type: "text", text })
       await api.Notify(actionCtx, "二维码内容已复制到剪贴板")
