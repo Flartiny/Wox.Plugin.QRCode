@@ -8,8 +8,13 @@ on:
 jobs:
   check-sdk-update:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     env:
       SDK_PACKAGE_NAME: "@wox-launcher/wox-plugin"
+      # Retry registry requests instead of failing the run on a single timeout.
+      npm_config_fetch_retries: "5"
+      npm_config_fetch_retry_maxtimeout: "120000"
+      npm_config_fetch_timeout: "600000"
     permissions:
       contents: write
       pull-requests: write
@@ -17,13 +22,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # Install the pnpm version pinned in package.json#packageManager.
+      # Do not switch this back to `corepack enable`: corepack resolves the
+      # latest pnpm on its own and downloads its platform binary with a 30s
+      # timeout, which is what broke run 39714866171.
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "24"
-
-      - name: Set up pnpm
-        run: corepack enable
+          cache: pnpm
 
       - name: Check for SDK Update
         id: check_update

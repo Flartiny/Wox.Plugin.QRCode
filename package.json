@@ -2,6 +2,7 @@
   "name": "wox-plugin-qrcode",
   "version": "1.0.0",
   "private": true,
+  "packageManager": "pnpm@11.28.6",
   "devDependencies": {
     "@babel/cli": "^7.24.7",
     "@babel/core": "^7.24.7",
